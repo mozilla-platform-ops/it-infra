@@ -1,0 +1,4 @@
+locals {
+  application = "{@ name @}"
+  project     = data.terraform_remote_state.projects.outputs.projects[local.application]
+}

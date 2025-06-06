@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+
+import jinja2
+import click
+import os
+
+
+def valid_risk_level(risk):
+    risk_levels = ["high", "low"]
+
+    if not risk in risk_levels:
+        print(f"[!] Risk '{risk}' is not valid in: {risk_levels}")
+        exit(1)
+
+
+def write_file(src, dest, data):
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+
+    with open(dest, "w") as f:
+        f.write(data)
+
+    src_mode = os.stat(src).st_mode
+    os.chmod(dest, src_mode)
+
+
+def jinja_env_from_path(path):
+    return jinja2.Environment(
+        loader=jinja2.FileSystemLoader(path),
+        variable_start_string="{@",
+        variable_end_string="@}",
+    )
+
+
+def print_skipped_files(skipped_files):
+    if skipped_files:
+        print(
+            "The following files already exist and were skipped, use --overwrite to overwrite them:"
+        )
+        for skipped_file in skipped_files:
+            print(f"    {skipped_file}")
+
+
+@click.command()
+@click.argument("name", required=True)
+@click.option(
+    "--risk",
+    required=True,
+    prompt="Enter the risk level for the application provided by secops [high/low]",
+)
+@click.option(
+    "--overwrite/--no-overwrite",
+    default=False,
+    help="Overwrite pre-existing files. By default files that do not exist will be written.",
+)
+def skeleton(name, risk, overwrite):
+    # chdir to the root of the repo if needed
+    os.chdir(os.path.join(os.path.dirname(__file__), "../.."))
+
+    valid_risk_level(risk)
+    print(f"[+] Templating project for {name} (risk level: {risk})")
+
+    jinja_env = jinja_env_from_path("misc/skeletons")
+
+    skipped_files = []
+
+    for template in jinja_env.list_templates():
+        src = os.path.join("misc/skeletons", template)
+        dest = os.path.join(name, template)
+
+        dest = dest.replace("CHARTNAME", name)
+        dest = dest.replace("tf.tmpl", "tf")
+        dest = dest.replace("yaml.tmpl", "yaml")
+
+        if not overwrite and os.path.exists(dest):
+            skipped_files.append(dest)
+            continue
+        write_file(
+            src,
+            dest,
+            jinja_env.get_template(template).render(name=name, risk=risk) + "\n",
+        )
+
+    print_skipped_files(skipped_files)
+
+    print(
+        f"[!] Please set the files at {name}/k8s/values-<env>.yaml to their appropriate values.\n"
+        f"[!] These generated files are meant as a starting point, and will need to be modified to fit the application needs."
+    )
+
+
+if __name__ == "__main__":
+    skeleton()
