@@ -1,0 +1,10 @@
+---
+defaults:
+  vnet_address_space:
+    - 10.0.0.0/20
+  vnet_dns_servers:
+    - 1.1.1.1
+    - 8.8.8.8
+  subnet_address_prefixes:
+  - 10.0.0.0/20
+  releng_prinicpal_id: '848f45ae-56a8-45ef-bb46-3f937de8efd1'
